@@ -1,0 +1,29 @@
+---
+- name: Convert Opscode Chef recipe to Ansible playbook
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Install ruby-lxc gem
+      gem:
+        name: ruby-lxc
+        state: present
+
+    - name: Create haproxy.cfg file
+      copy:
+        content: |
+          # haproxy.cfg content here
+        dest: /etc/haproxy/haproxy.cfg
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Start haproxy service
+      service:
+        name: haproxy
+        state: started
+        enabled: true
+
+    - name: Reload haproxy
+      command: "sudo haproxy -f /etc/haproxy/haproxy.cfg -p /var/run/haproxy.pid -sf \$(cat /var/run/haproxy.pid)"
+

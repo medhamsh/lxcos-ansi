@@ -1,0 +1,69 @@
+---
+- name: Convert Opscode Chef recipe to Ansible playbook
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Install sshkey gem
+      gem:
+        name: sshkey
+        state: present
+
+    - name: Create lxc.conf file
+      copy:
+        content: |
+          [lxc.conf]
+          title=lxc.conf
+        dest: /opt/goatos/.config/lxc/default.conf
+        owner: goatos
+        group: goatos
+        mode: "0644"
+
+    - name: Create lamp-template config file
+      copy:
+        content: |
+          [lamp-template]
+          title=lamp.conf
+        dest: /opt/goatos/.local/share/lxc/lamp-template/config
+        owner: goatos
+        group: goatos
+        mode: "0644"
+
+    - name: Clone admin-keys repository
+      git:
+        repo: https://github.com/axelerant/admin-keys.git
+        dest: /opt/goatos/.ssh/admin-keys
+        version: master
+        force: yes
+
+    - name: Combine admin-keys with authorized_keys
+      shell: cat /opt/goatos/.ssh/admin-keys/keys >> /opt/goatos/.ssh/authorized_keys
+
+    - name: Add ubuntu-keys to ubuntu user's authorized_keys
+      shell: cat /opt/goatos/.ssh/admin-keys/keys >> /home/ubuntu/.ssh/authorized_keys
+
+    - name: Create cgroups
+      command: "sudo cgm create all goatos && sudo cgm chown all goatos $(id -u goatos) $(id -g goatos)"
+      register: cgroups_output
+      changed_when: false
+      ignore_errors: true
+
+    - name: Edit .bashrc to source cgmmove
+      blockinfile:
+        path: /opt/goatos/.bashrc
+        block: |
+          source /opt/goatos/lxc.conf.d/cgmmove
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+
+    - name: Enable haproxy
+      lineinfile:
+        path: /etc/default/haproxy
+        line: "ENABLED=1"
+
+    - name: Start haproxy service
+      service:
+        name: haproxy
+        state: started
+        enabled: true
+        ignore_errors: true
+

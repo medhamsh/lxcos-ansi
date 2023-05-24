@@ -1,0 +1,108 @@
+---
+- name: Convert Opscode Chef recipe to Ansible playbook
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install packages
+      package:
+        name:
+          - liblxc1
+          - lxc
+          - lxc-dev
+          - lxc-templates
+          - python3-lxc
+          - build-essential
+          - haproxy
+          - awscli
+          - git-core
+          - cgmanager-utils
+        state: present
+
+    - name: Install Ruby gems
+      gem:
+        name:
+          - ruby-lxc
+          - sshkey
+          - serfx
+        gem_bin: /opt/chef/embedded/bin/gem
+
+    - name: Create user
+      user:
+        name: goatos
+        home: /opt/goatos
+        shell: /bin/bash
+        create_home: yes
+
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: goatos
+        group: goatos
+        mode: "0{{ item.mode }}"
+      loop:
+        - /opt/goatos/.config
+        - /opt/goatos/.config/lxc
+        - /opt/goatos/.local
+        - /opt/goatos/.local/share
+        - /opt/goatos/.local/share/lxc
+        - /opt/goatos/.local/share/lxc/lamp-template
+        - /opt/goatos/.local/share/lxcsnaps
+        - /opt/goatos/.cache
+        - /opt/goatos/.cache/lxc
+        - /opt/goatos/.ssh
+        - /opt/goatos/lxc.conf.d
+        - /opt/goatos/.aws
+
+    - name: Download lamp-template.tar.gz
+      get_url:
+        url: "https://s3.amazonaws.com/projspace/lamp-template.tar.gz"
+        dest: "/opt/goatos/.local/share/lxc/lamp-template/lamp-template.tar.gz"
+        mode: "0644"
+
+    - name: Extract template
+      unarchive:
+        src: "/opt/goatos/.local/share/lxc/lamp-template/lamp-template.tar.gz"
+        dest: "/opt/goatos/.local/share/lxc/lamp-template/"
+        owner: goatos
+        group: goatos
+        mode: "0751"
+        remote_src: yes
+
+    - name: Create configuration files
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { src: "awsconfig", dest: "/opt/goatos/.aws/config", owner: "goatos", group: "goatos", mode: "0600" }
+        - { src: "create_container.rb", dest: "/usr/local/bin/create_container.rb", owner: "root", group: "root", mode: "0755" }
+        - { src: "number_of_containers.rb", dest: "/usr/local/bin/number_of_containers.rb", owner: "root", group: "root", mode: "0755" }
+        - { src: "add_key_to_container", dest: "/usr/local/bin/add_key_to_container", owner: "root", group: "root", mode: "0755" }
+
+    - name: Configure lxc-usernet
+      lineinfile:
+        path: /etc/lxc/lxc-usernet
+        line: "{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - "{{ node['goatos']['user'] }} veth lxcbr0 100"
+
+    - name: Create cgmmove file
+      copy:
+        content: "cgm movepid all {{ node['goatos']['user'] }} $$ > /dev/null 2>&1"
+        dest: "/opt/goatos/lxc.conf.d/cgmmove"
+        owner: goatos
+        group: goatos
+        mode: "0755"
+

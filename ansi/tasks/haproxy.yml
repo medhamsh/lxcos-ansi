@@ -1,0 +1,26 @@
+---
+- name: Convert Opscode Chef recipe to Ansible playbook
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Add haproxy entry
+      debug:
+        msg: "Adding '{{ new_resource.name }}' haproxy entry as {{ new_resource.title }}!"
+
+    - name: Create haproxy template
+      template:
+        src: "{{ new_resource.name }}.erb"
+        dest: "{{ new_resource.path }}"
+        owner: "{{ node['goatos']['user'] }}"
+        group: "{{ node['goatos']['user'] }}"
+        mode: "0644"
+      vars:
+        containers: "{{ container_ips('goatos') }}"
+        start_port: 8000
+
+    - name: Remove haproxy template
+      file:
+        path: "{{ new_resource.path }}"
+        state: absent
+

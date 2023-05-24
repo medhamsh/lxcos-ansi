@@ -1,0 +1,36 @@
+---
+- name: Convert Opscode Chef recipe to Ansible playbook
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Configure lxc.network.type
+      lineinfile:
+        path: /path/to/lxc/config/file
+        line: "lxc.network.type = veth"
+
+    - name: Configure lxc.network.link
+      lineinfile:
+        path: /path/to/lxc/config/file
+        line: "lxc.network.link = lxcbr0"
+
+    - name: Configure lxc.network.flags
+      lineinfile:
+        path: /path/to/lxc/config/file
+        line: "lxc.network.flags = up"
+
+    - name: Configure lxc.network.hwaddr
+      lineinfile:
+        path: /path/to/lxc/config/file
+        line: "lxc.network.hwaddr = 00:16:3e:xx:xx:xx"
+
+    - name: Configure lxc.id_map (user)
+      lineinfile:
+        path: /path/to/lxc/config/file
+        line: "lxc.id_map = u 0 {{ u_start }} {{ u_range }}"
+
+    - name: Configure lxc.id_map (group)
+      lineinfile:
+        path: /path/to/lxc/config/file
+        line: "lxc.id_map = g 0 {{ g_start }} {{ g_range }}"
+
